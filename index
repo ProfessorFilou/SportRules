@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SportRules — Pro Fan-Dashboard</title>
+    <style>
+        :root {
+            --bg: #060913;
+            --surface: #0f1626;
+            --surface-card: #152035;
+            --border: #243553;
+            --pitch-bg: #115e30;
+            --pitch-line: rgba(255, 255, 255, 0.9);
+            --text: #ffffff;
+            --text-muted: #8493a8;
+            --brand: #10b981;
+            --brand-glow: rgba(16, 185, 129, 0.25);
+            --warn: #f59e0b;
+            --danger: #ef4444;
+            --card-radius: 24px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg);
+            background-image: radial-gradient(circle at 50% 0%, #111c35 0%, var(--bg) 70%);
+            color: var(--text);
+            padding: clamp(12px, 3vw, 40px) clamp(8px, 2vw, 24px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: clamp(20px, 4vw, 44px);
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        header h1 {
+            font-size: clamp(2rem, 5.5vw, 3.5rem);
+            font-weight: 900;
+            letter-spacing: -0.04em;
+            margin-bottom: 4px;
+        }
+
+        header h1 span {
+            color: var(--brand);
+            text-shadow: 0 0 20px var(--brand-glow);
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: clamp(0.9rem, 2.2vw, 1.15rem);
+        }
+
+        .grid {
+            width: 100%;
+            max-width: 1200px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: clamp(14px, 2.5vw, 28px);
+        }
+
+        @media (min-width: 992px) {
+            .grid {
+                grid-template-columns: 1.15fr 0.85fr;
+            }
+        }
+
+        .card {
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--card-radius);
+            padding: clamp(16px, 3.5vw, 32px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: blur(10px);
+        }
+
+        .card h2 {
+            font-size: clamp(1.2rem, 2.8vw, 1.5rem);
+            font-weight: 800;
+            margin-bottom: 12px;
+        }
+
+        .hint {
+            font-size: clamp(0.78rem, 1.8vw, 0.9rem);
+            color: var(--text-muted);
+            margin-top: -6px;
+            margin-bottom: 18px;
+        }
+
+        /* HÖCHST RESPONSIVES SPIELFELD-SYSTEM */
+        .pitch-container {
+            width: 100%;
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .pitch {
+            width: 100%;
+            aspect-ratio: 100 / 64; /* Exaktes DFB-Format */
+            background-color: var(--pitch-bg);
+            background-image: repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 40px, transparent 40px, transparent 80px);
+            border: clamp(2px, 0.5vw, 3.5px) solid var(--pitch-line);
+            border-radius: 12px;
+            position: relative;
+            box-shadow: inset 0 0 40px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+
+        /* Mittellinie */
+        .pitch::before {
+            content: '';
+            position: absolute;
+            top: 0; bottom: 0; left: 50%;
+            width: clamp(2px, 0.4vw, 3px);
+            background-color: var(--pitch-line);
+            transform: translateX(-50%);
+        }
+
+        /* Interaktive Klick- & Puls-Zonen */
+        .zone {
+            position: absolute;
+            cursor: pointer;
+            z-index: 5;
+            transition: background-color 0.25s ease;
+        }
+
+        .zone:hover {
+            background-color: rgba(255, 255, 255, 0.08);
+        }
+
+        /* Mittelkreis */
+        .zone-center {
+            top: 50%; left: 50%;
+            width: 22%; aspect-ratio: 1;
+            border: clamp(2px, 0.4vw, 3px) solid var(--pitch-line);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            animation: pulseGlow 3s infinite ease-in-out;
+        }
+
+        /* Strafraum (16m) */
+        .zone-box-l {
+            top: 20%; bottom: 20%; left: -3px; width: 16.5%;
+            border: clamp(2px, 0.4vw, 3px) solid var(--pitch-line);
+            border-left: none;
+        }
+
+        .zone-box-r {
+            top: 20%; bottom: 20%; right: -3px; width: 16.5%;
+            border: clamp(2px, 0.4vw, 3px) solid var(--pitch-line);
+            border-right: none;
+        }
+
+        /* Torraum (5m) */
+        .goal-box-l, .goal-box-r {
+            position: absolute;
+            top: 35%; bottom: 35%;
+            width: 5.5%;
+            border: clamp(2px, 0.4vw, 3px) solid var(--pitch-line);
+            pointer-events: none;
+        }
+        .goal-box-l { left: -3px; border-left: none; }
+        .goal-box-r { right: -3px; border-right: none; }
+
+        /* Tore */
+        .zone-goal-l {
+            top: 42%; bottom: 42%; left: -4px; width: 3%;
+            border: clamp(2px, 0.4vw, 3px) solid var(--pitch-line);
+            background: rgba(255,255,255,0.15);
+        }
+
+        .zone-goal-r {
+            top: 42%; bottom: 42%; right: -4px; width: 3%;
+            border: clamp(2px, 0.4vw, 3px) solid var(--pitch-line);
+            background: rgba(255,255,255,0.15);
+        }
+
+        /* Punkte auf dem Rasen */
+        .center-spot {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: clamp(4px, 1vw, 6px); height: clamp(4px, 1vw, 6px);
+            background-color: var(--pitch-line);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2;
+        }
+
+        .penalty-spot-l, .penalty-spot-r {
+            position: absolute;
+            top: 50%;
+            width: clamp(4px, 1vw, 6px); height: clamp(4px, 1vw, 6px);
+            background-color: var(--pitch-line);
+            border-radius: 50%;
+            transform: translateY(-50%);
+            z-index: 2;
+        }
+        .penalty-spot-l { left: 11%; }
+        .penalty-spot-r { right: 11%; }
+
+        /* Ecken */
+        .corner {
+            position: absolute;
+            width: 3%; aspect-ratio: 1;
+            border: clamp(1.5px, 0.3vw, 2px) solid var(--pitch-line);
+            border-radius: 50%;
+        }
+        .top-left { top: -3%; left: -3%; }
+        .top-right { top: -3%; right: -3%; }
+        .bottom-left { bottom: -3%; left: -3%; }
+        .bottom-right { bottom: -3%; right: -3%; }
+
+        /* Der Ball mit dynamic Rotation & 3D Schatten */
+        .interactive-ball {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: clamp(14px, 3.2vw, 18px); aspect-ratio: 1;
+            background: #ffffff;
+            background-image: radial-gradient(circle at 30% 30%, #fff 0%, #bbb 80%);
+            border: 2px solid #000;
+            border-radius: 50%;
+            transform: translate(-50%, -50%) rotate(0deg);
+            z-index: 10;
+            pointer-events: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            transition: all 0.75s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+
+        /* Infobox mit optimiertem Höhenwechsel */
+        .display-box {
+            background-color: var(--surface-card);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 18px;
+            min-height: 125px;
+            position: relative;
+        }
+
+        .vanishing-text {
+            position: absolute;
+            top: 18px; left: 18px; right: 18px;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            pointer-events: none;
+        }
+
+        .vanishing-text.active {
+            position: relative;
+            top: 0; left: 0; right: 0;
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .vanishing-text h3 {
+            color: var(--brand);
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 5px;
+        }
+
+        .vanishing-text p {
+            color: #e2e8f0;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        /* TAB-NAVIGATION */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            background-color: var(--surface-card);
+            padding: 4px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            margin-bottom: 18px;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+        .tabs::-webkit-scrollbar { display: none; }
+
+        .tab-btn {
+            flex: 1;
+            min-width: 90px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            padding: 10px 4px;
+            font-weight: 700;
+            font-size: 0.82rem;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: all 0.25s ease;
+            white-space: nowrap;
+        }
+
+        .tab-btn.active {
+            background-color: var(--brand);
+            color: #060913;
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: slideUpIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .items {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .items li {
+            background-color: rgba(255, 255, 255, 0.015);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            padding: 14px;
+            border-radius: 14px;
+        }
+
+        .items label {
+            display: block;
+            color: var(--brand);
+            font-weight: 700;
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+        }
+
+        .items label.warn { color: var(--warn); }
+        .items label.danger { color: var(--danger); }
+
+        .items p {
+            color: #e2e8f0;
+            font-size: 0.92rem;
+            line-height: 1.5;
+        }
+
+        /* ANIMATION KEYFRAMES */
+        @keyframes slideUpIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { border-color: rgba(255,255,255,0.9); }
+            50% { border-color: rgba(16, 185, 129, 0.6); }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Sport<span>Rules</span></h1>
+        <p>Das interaktive Experten-Dashboard für Fans</p>
+    </header>
+
+    <div class="grid">
+        
+        <div class="card">
+            <h2>🏟️ Taktischer Rasen-Guide</h2>
+            <p class="hint">Klicke Zonen an, um den Ball dorthin zu kicken und Regeln zu laden!</p>
+            
+            <div class="pitch-container">
+                <div class="pitch">
+                    <div class="corner top-left"></div>
+                    <div class="corner top-right"></div>
+                    <div class="corner bottom-left"></div>
+                    <div class="corner bottom-right"></div>
+                    
+                    <div class="goal-box-l"></div>
+                    <div class="goal-box-r"></div>
+
+                    <div class="center-spot"></div>
+                    <div class="penalty-spot-l"></div>
+                    <div class="penalty-spot-r"></div>
+
+                    <div class="zone zone-center" onclick="moveBall('center')"></div>
+                    <div class="zone zone-box-l" onclick="moveBall('box-l')"></div>
+                    <div class="zone zone-box-r" onclick="moveBall('box-r')"></div>
+                    <div class="zone zone-goal-l" onclick="moveBall('goal-l')"></div>
+                    <div class="zone zone-goal-r" onclick="moveBall('goal-r')"></div>
+                    
+                    <div class="interactive-ball" id="ball"></div>
+                </div>
+            </div>
+
+            <div class="display-box">
+                <div id="info-default" class="vanishing-text active">
+                    <h3>💡 Rasen antippen</h3>
+                    <p>Wähle einen Bereich des Feldes, um die exakten Bestimmungen der FIFA & des DFB für diese Zone einzusehen.</p>
+                </div>
+                <div id="info-center" class="vanishing-text">
+                    <h3>🟢 Anstoßkreis & Spielaufbau</h3>
+                    <p>Der Anstoßpunkt liegt genau im Zentrum. Beim Anfeuern oder nach Gegentoren wird hier gestartet. Alle gegnerischen Akteure müssen außerhalb des 9,15-Meter-Kreises warten, bis der erste Pass rollt.</p>
+                </div>
+                <div id="info-box" class="vanishing-text">
+                    <h3>🟡 Strafraum (16m) & Torraum (5m)</h3>
+                    <p>Im Strafraum darf der Keeper den Ball mit der Hand spielen. Fouls der Abwehr führen zum Elfmeter. Der innere Torraum schützt den Keeper: Abstöße werden von hier ausgeführt; rempeln ist hier tabu.</p>
+                </div>
+                <div id="info-goal" class="vanishing-text">
+                    <h3>⚽ Torlinie & Torerzielung</h3>
+                    <p>Ein regulärer Treffer zählt erst, wenn der Ball die Torlinie zwischen den Pfosten und unter der Latte mit vollem Durchmesser (100 %) überquert hat. Die Sensoren im Ball funken das Signal an die Schiri-Uhr.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📖 Offizielles Regelwerk</h2>
+            <p class="hint">Umfassende Spielregeln verständlich aufbereitet.</p>
+            
+            <div class="tabs">
+                <button class="tab-btn active" onclick="openTab(event, 'tab-match')">Matchday</button>
+                <button class="tab-btn" onclick="openTab(event, 'tab-gameplay')">Spielfluss</button>
+                <button class="tab-btn" onclick="openTab(event, 'tab-discipline')">Disziplin</button>
+                <button class="tab-btn" onclick="openTab(event, 'tab-var')">Technik</button>
+            </div>
+
+            <div id="tab-match" class="tab-content active">
+                <ul class="items">
+                    <li>
+                        <label>Spielzeit & Nachspielzeit</label>
+                        <p>Das Spiel dauert 2 x 45 Minuten. Der Schiedsrichter lässt am Ende jeder Hälfte die Zeit nachspielen, die durch Auswechslungen, Verletzungen oder Torjubel verloren ging.</p>
+                    </li>
+                    <li>
+                        <label>Der Strafstoß (Elfmeter)</label>
+                        <p>Fouls im Strafraum bedeuten Strafstoß vom 11-Meter-Punkt. Der Torwart muss beim Schuss mindestens mit einem Teil eines Fußes auf oder über der Torlinie stehen.</p>
+                    </li>
+                </ul>
+            </div>
+
+            <div id="tab-gameplay" class="tab-content">
+                <ul class="items">
+                    <li>
+                        <label>Einwurf, Ecke & Abstoß</label>
+                        <p>Verlässt der Ball das Feld seitlich, gibt es Einwurf. Geht er über die Torlinie, gibt es Abstoß (wenn der Angreifer zuletzt dran war) oder Eckball (wenn der Verteidiger zuletzt dran war).</p>
+                    </li>
+                    <li>
+                        <label>Abseits-Regel</label>
+                        <p>Ein Angreifer steht im Abseits, wenn er bei der Ballabgabe in der gegnerischen Hälfte dem Tor näher ist als der Ball und der vorletzte Gegenspieler. Bei Eckbällen, Einwürfen und Abstößen ist Abseits aufgehoben.</p>
+                    </li>
+                    <li>
+                        <label>Handspiel</label>
+                        <p>Nicht jedes Berühren mit der Hand ist strafbar. Strafbar ist Absicht oder wenn die Hand den Körper unnatürlich vergrößert. Tore mit der Hand zählen niemals, selbst wenn es unabsichtlich war.</p>
+                    </li>
+                </ul>
+            </div>
+
+            <div id="tab-discipline" class="tab-content">
+                <ul class="items">
+                    <li>
+                        <label class="warn">Gelbe Karte (Verwarnung)</label>
+                        <p>Für rücksichtslose Fouls, taktische Fouls (Konter stoppen), Zeitspiel oder unsportliches Reklamieren beim Unparteiischen.</p>
+                    </li>
+                    <li>
+                        <label class="danger">Rote Karte (Feldverweis)</label>
+                        <p>Sofortiges Verlassen des Innenraums bei grobem Foulspiel (Verletzungsgefahr), Tätlichkeiten (Schlagen/Spucken) oder dem Verhindern eines klaren Tores (Notbremse).</p>
+                    </li>
+                    <li>
+                        <label class="danger">Karten für Trainer & Betreuer</label>
+                        <p>Auch die Trainerbank kann verwarnt werden. Bei heftigem Protestieren oder Verlassen der Coaching-Zone zeigt der Schiedsrichter Gelb oder Rot.</p>
+                    </li>
+                </ul>
+            </div>
+
+            <div id="tab-var" class="tab-content">
+                <ul class="items">
+                    <li>
+                        <label>Der Videobeweis (VAR)</label>
+                        <p>Der Video-Assistent im Studio greift nur bei klaren Fehlentscheidungen in vier Situationen ein: Tore, Elfmeter, Rote Karten und Verwechslung von Spielern.</p>
+                    </li>
+                    <li>
+                        <label>Torlinientechnologie</label>
+                        <p>Mehrere Kameras überwachen die Tore exakt. Hat der Ball die Linie komplett überschritten, vibriert die Uhr des Schiedsrichters und zeigt "GOAL" an.</p>
+                    </li>
+                </ul>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        const ball = document.getElementById('ball');
+        let currentRotation = 0;
+
+        function moveBall(zone) {
+            document.querySelectorAll('.vanishing-text').forEach(t => t.classList.remove('active'));
+            
+            // Zufällige Rotation erzeugen, damit der Ball optisch rollt
+            currentRotation += (Math.random() > 0.5 ? 360 : -360) + (Math.random() * 90);
+
+            if (zone === 'center') {
+                ball.style.left = '50%'; ball.style.top = '50%';
+                ball.style.transform = `translate(-50%, -50%) rotate(${currentRotation}deg)`;
+                document.getElementById('info-center').classList.add('active');
+            } else if (zone === 'box-l') {
+                ball.style.left = '11%'; ball.style.top = '50%';
+                ball.style.transform = `translate(-50%, -50%) rotate(${currentRotation}deg)`;
+                document.getElementById('info-box').classList.add('active');
+            } else if (zone === 'box-r') {
+                ball.style.left = '89%'; ball.style.top = '50%';
+                ball.style.transform = `translate(-50%, -50%) rotate(${currentRotation}deg)`;
+                document.getElementById('info-box').classList.add('active');
+            } else if (zone === 'goal-l') {
+                ball.style.left = '1.5%'; ball.style.top = '50%';
+                ball.style.transform = `translate(-50%, -50%) rotate(${currentRotation}deg)`;
+                document.getElementById('info-goal').classList.add('active');
+            } else if (zone === 'goal-r') {
+                ball.style.left = '98.5%'; ball.style.top = '50%';
+                ball.style.transform = `translate(-50%, -50%) rotate(${currentRotation}deg)`;
+                document.getElementById('info-goal').classList.add('active');
+            }
+        }
+
+        function openTab(event, tabId) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+    </script>
+</body>
+</html>
